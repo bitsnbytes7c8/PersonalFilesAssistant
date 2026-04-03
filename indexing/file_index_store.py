@@ -16,8 +16,24 @@ class AddFolderResult:
     error: str | None = None
 
 
+def _is_strict_descendant(path: Path, ancestor: Path) -> bool:
+    """True if ``path`` is a directory strictly inside ``ancestor`` (not equal)."""
+    try:
+        resolved_path = path.resolve()
+        resolved_ancestor = ancestor.resolve()
+        if resolved_path == resolved_ancestor:
+            return False
+        resolved_path.relative_to(resolved_ancestor)
+        return True
+    except ValueError:
+        return False
+
+
 class FileIndexStore:
     """Remembers which folders you added and which .txt files exist under them (recursive).
+
+    Nested paths are normalized: a subfolder of an already indexed folder cannot be added;
+    adding a parent folder removes redundant indexed subfolders.
 
     Actual content indexing is intentionally not implemented yet; only paths are persisted.
     """
@@ -82,6 +98,33 @@ class FileIndexStore:
         txt_paths = self._collect_txt_paths(resolved)
 
         with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, path FROM indexed_folders"
+            ).fetchall()
+
+            for row in rows:
+                existing_path = Path(row["path"])
+                if _is_strict_descendant(resolved, existing_path):
+                    return AddFolderResult(
+                        ok=False,
+                        error=(
+                            "This folder is already covered by an indexed parent: "
+                            f"{row['path']}"
+                        ),
+                    )
+
+            redundant_ids: list[int] = []
+            for row in rows:
+                existing_path = Path(row["path"])
+                if _is_strict_descendant(existing_path, resolved):
+                    redundant_ids.append(int(row["id"]))
+            if redundant_ids:
+                placeholders = ",".join("?" * len(redundant_ids))
+                conn.execute(
+                    f"DELETE FROM indexed_folders WHERE id IN ({placeholders})",
+                    redundant_ids,
+                )
+
             try:
                 conn.execute(
                     "INSERT INTO indexed_folders (path) VALUES (?)",
@@ -97,7 +140,11 @@ class FileIndexStore:
                 "SELECT id FROM indexed_folders WHERE path = ?",
                 (folder_key,),
             ).fetchone()
-            assert row is not None
+            if row is None:
+                return AddFolderResult(
+                    ok=False,
+                    error="Failed to register folder after update.",
+                )
             folder_id = int(row["id"])
 
             for fp in txt_paths:

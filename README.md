@@ -33,7 +33,7 @@ Then open the URL printed in the terminal (usually `http://127.0.0.1:8080/`). A 
 
 - **History** appears above the text box; each reply updates the list.
 - **Send** with the button or **Enter** (Shift+Enter for a newline).
-- **Indexed folders** (top right): paste an **absolute path** to a directory on this computer and click **Add**. The server records that folder and all **`.txt`** files under it (recursively) in a **SQLite** database (`data/files_index.db`). Duplicate folders are rejected. Browsers cannot read arbitrary disk paths, so the path field is manual; the server must run on the same machine as those files.
+- **Indexed folders** (top right): paste an **absolute path** to a directory on this computer and click **Add**. The server records that folder and all **`.txt`** files under it (recursively) in a **SQLite** database (`data/files_index.db`). Exact duplicate paths are rejected; a **subfolder of an already indexed folder** is also rejected (nested coverage). If you add a **parent** folder later, any indexed **child** folders under it are removed and replaced by the parent scan. Browsers cannot read arbitrary disk paths, so the path field is manual; the server must run on the same machine as those files.
 
 
 Options:
