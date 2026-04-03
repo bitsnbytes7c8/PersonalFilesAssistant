@@ -1,4 +1,4 @@
-"""Indexing state constants for folders and .txt files."""
+"""Indexing state constants for folders and .pdf files."""
 
 from __future__ import annotations
 

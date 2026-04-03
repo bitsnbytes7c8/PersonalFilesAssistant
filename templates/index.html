@@ -331,7 +331,7 @@
         const counts = document.createElement("span");
         const total = f.file_total != null ? f.file_total : 0;
         const done = f.files_completed != null ? f.files_completed : 0;
-        counts.textContent = total + " .txt file(s) — " + done + " indexed";
+        counts.textContent = total + " .pdf file(s) — " + done + " indexed";
 
         meta.appendChild(badge);
         meta.appendChild(counts);
@@ -374,10 +374,10 @@
           return;
         }
         renderFolderList(data.folders || []);
-        const n = data.txt_files_stored;
+        const n = data.pdf_files_stored;
         folderOkEl.textContent =
           typeof n === "number"
-            ? `Added — ${n} .txt file(s) queued for indexing in the background.`
+            ? `Added — ${n} .pdf file(s) queued for indexing in the background.`
             : "Folder added.";
         folderPathEl.value = "";
       } catch (e) {

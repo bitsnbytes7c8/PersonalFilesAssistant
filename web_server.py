@@ -70,7 +70,7 @@ def create_app(
             {
                 "folder_path": result.folder_path,
                 "folder_id": result.folder_id,
-                "txt_files_stored": result.txt_files_stored,
+                "pdf_files_stored": result.pdf_files_stored,
                 "folders": index_store.list_folders(),
             }
         )

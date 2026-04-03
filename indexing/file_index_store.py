@@ -1,4 +1,4 @@
-"""SQLite-backed registry of folders and .txt files with persisted indexing state."""
+"""SQLite-backed registry of folders and .pdf files with persisted indexing state."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class AddFolderResult:
     ok: bool
     folder_path: str | None = None
     folder_id: int | None = None
-    txt_files_stored: int = 0
+    pdf_files_stored: int = 0
     error: str | None = None
 
 
@@ -41,7 +41,7 @@ def _file_mtime_ns(path: Path) -> int | None:
 
 
 class FileIndexStore:
-    """Folders and .txt file paths with per-row state and aggregate folder state."""
+    """Folders and .pdf file paths with per-row state and aggregate folder state."""
 
     def __init__(self, db_path: str | Path) -> None:
         self._db_path = Path(db_path)
@@ -67,6 +67,7 @@ class FileIndexStore:
                     state TEXT NOT NULL DEFAULT 'NOT_STARTED'
                 );
 
+                -- Table name is historical; rows hold paths to indexed documents (currently .pdf only).
                 CREATE TABLE IF NOT EXISTS pending_txt_files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     path TEXT NOT NULL UNIQUE,
@@ -102,9 +103,9 @@ class FileIndexStore:
             conn.execute("ALTER TABLE pending_txt_files ADD COLUMN mtime_ns INTEGER")
 
     @staticmethod
-    def _collect_txt_paths(root: Path) -> list[Path]:
+    def _collect_pdf_paths(root: Path) -> list[Path]:
         paths: list[Path] = []
-        for p in root.rglob("*.txt"):
+        for p in root.rglob("*.pdf"):
             try:
                 if p.is_file():
                     paths.append(p.resolve())
@@ -137,7 +138,7 @@ class FileIndexStore:
             return AddFolderResult(ok=False, error="Path is not a directory.")
 
         folder_key = str(resolved)
-        txt_paths = self._collect_txt_paths(resolved)
+        pdf_paths = self._collect_pdf_paths(resolved)
 
         with self._lock:
             with self._connect() as conn:
@@ -188,7 +189,7 @@ class FileIndexStore:
                     )
                 folder_id = int(row["id"])
 
-                for fp in txt_paths:
+                for fp in pdf_paths:
                     mtime = _file_mtime_ns(fp)
                     try:
                         conn.execute(
@@ -207,7 +208,7 @@ class FileIndexStore:
             ok=True,
             folder_path=folder_key,
             folder_id=folder_id,
-            txt_files_stored=len(txt_paths),
+            pdf_files_stored=len(pdf_paths),
         )
 
     def get_folder_path(self, folder_id: int) -> str | None:
@@ -235,7 +236,7 @@ class FileIndexStore:
                     return []
 
                 on_disk: dict[str, Path] = {}
-                for p in self._collect_txt_paths(root):
+                for p in self._collect_pdf_paths(root):
                     on_disk[str(p)] = p
 
                 db_rows = conn.execute(

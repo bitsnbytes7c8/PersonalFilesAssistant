@@ -1,4 +1,4 @@
-"""Background producer/consumer pipeline for indexing .txt files (content step is a no-op for now)."""
+"""Background producer/consumer pipeline for indexing .pdf files (content step is a no-op for now)."""
 
 from __future__ import annotations
 
