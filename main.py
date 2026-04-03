@@ -2,11 +2,16 @@
 
 import argparse
 import webbrowser
+from pathlib import Path
 from threading import Timer
 
 from chatbot import run_chat_loop
+from indexing import FileIndexStore
 from llm.ollama import OllamaLLM
 from web_server import run_web_server
+
+_PROJECT_ROOT = Path(__file__).resolve().parent
+_DEFAULT_DB = _PROJECT_ROOT / "data" / "files_index.db"
 
 
 def main() -> None:
@@ -56,7 +61,8 @@ def main() -> None:
 
     print(f"Web UI: {url}")
     print("Press Ctrl+C to stop.\n")
-    run_web_server(llm, host=args.host, port=args.port)
+    index_store = FileIndexStore(_DEFAULT_DB)
+    run_web_server(llm, host=args.host, port=args.port, index_store=index_store)
 
 
 if __name__ == "__main__":

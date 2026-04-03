@@ -20,15 +20,122 @@
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
       padding: 1rem;
     }
-    h1 { font-size: 1.1rem; font-weight: 600; color: var(--muted); margin: 0 0 0.75rem; }
+    .shell {
+      max-width: 56rem;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 2rem);
+    }
+    .shell-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .shell-header h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0;
+    }
+    .index-panel {
+      flex: 0 1 22rem;
+      max-width: 100%;
+      margin-left: auto;
+      background: var(--surface);
+      border: 1px solid #38444d;
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.8rem;
+    }
+    .index-panel h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    #folder-list {
+      list-style: none;
+      margin: 0 0 0.6rem;
+      padding: 0;
+      max-height: 10rem;
+      overflow-y: auto;
+    }
+    #folder-list li {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #2f3b47;
+      word-break: break-all;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    #folder-list li:last-child { border-bottom: none; }
+    #folder-list:empty::after {
+      content: "None yet";
+      color: var(--muted);
+      font-style: italic;
+    }
+    .folder-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    #folder-path {
+      width: 100%;
+      padding: 0.45rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #38444d;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.8rem;
+    }
+    #folder-path:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .folder-form .hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .folder-row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    #add-folder {
+      flex-shrink: 0;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #add-folder:disabled { opacity: 0.5; cursor: not-allowed; }
+    #folder-err {
+      color: #f4212e;
+      font-size: 0.75rem;
+      min-height: 1.1em;
+    }
+    #folder-ok {
+      color: #00ba7c;
+      font-size: 0.75rem;
+      min-height: 1.1em;
+    }
     .panel {
       width: 100%;
-      max-width: 42rem;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
@@ -91,7 +198,7 @@
       gap: 0.5rem;
       align-items: center;
     }
-    button {
+    #send {
       padding: 0.5rem 1rem;
       border-radius: 999px;
       border: none;
@@ -101,7 +208,7 @@
       font-weight: 600;
       cursor: pointer;
     }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #send:disabled { opacity: 0.5; cursor: not-allowed; }
     #err {
       color: #f4212e;
       font-size: 0.85rem;
@@ -110,14 +217,32 @@
   </style>
 </head>
 <body>
-  <div class="panel">
-    <h1>Conversation</h1>
-    <div id="history" aria-live="polite"></div>
-    <div class="composer">
-      <div id="err"></div>
-      <textarea id="message" placeholder="Type your message…" rows="3"></textarea>
-      <div class="row">
-        <button type="button" id="send">Send</button>
+  <div class="shell">
+    <header class="shell-header">
+      <h1>Conversation</h1>
+      <aside class="index-panel" aria-label="Indexed folders">
+        <h2>Indexed folders</h2>
+        <ul id="folder-list"></ul>
+        <div class="folder-form">
+          <label class="hint" for="folder-path">Add a folder (absolute path on this machine)</label>
+          <div class="folder-row">
+            <input type="text" id="folder-path" name="folder-path" placeholder="/Users/you/Documents/project" autocomplete="off" spellcheck="false" />
+            <button type="button" id="add-folder">Add</button>
+          </div>
+          <div id="folder-err"></div>
+          <div id="folder-ok"></div>
+        </div>
+      </aside>
+    </header>
+
+    <div class="panel">
+      <div id="history" aria-live="polite"></div>
+      <div class="composer">
+        <div id="err"></div>
+        <textarea id="message" placeholder="Type your message…" rows="3"></textarea>
+        <div class="row">
+          <button type="button" id="send">Send</button>
+        </div>
       </div>
     </div>
   </div>
@@ -126,6 +251,12 @@
     const messageEl = document.getElementById("message");
     const sendBtn = document.getElementById("send");
     const errEl = document.getElementById("err");
+
+    const folderListEl = document.getElementById("folder-list");
+    const folderPathEl = document.getElementById("folder-path");
+    const addFolderBtn = document.getElementById("add-folder");
+    const folderErrEl = document.getElementById("folder-err");
+    const folderOkEl = document.getElementById("folder-ok");
 
     function renderTurns(turns) {
       historyEl.textContent = "";
@@ -154,6 +285,62 @@
         historyEl.appendChild(turn);
       }
       historyEl.scrollTop = historyEl.scrollHeight;
+    }
+
+    function renderFolderList(folders) {
+      folderListEl.textContent = "";
+      for (const f of folders) {
+        const li = document.createElement("li");
+        li.textContent = f.path;
+        li.title = f.path;
+        folderListEl.appendChild(li);
+      }
+    }
+
+    async function loadFolders() {
+      folderErrEl.textContent = "";
+      try {
+        const res = await fetch("/api/index/folders");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          folderErrEl.textContent = data.error || "Could not load folders";
+          return;
+        }
+        renderFolderList(data.folders || []);
+      } catch (e) {
+        folderErrEl.textContent = String(e);
+      }
+    }
+
+    async function addFolder() {
+      const path = folderPathEl.value.trim();
+      if (!path) return;
+      folderErrEl.textContent = "";
+      folderOkEl.textContent = "";
+      addFolderBtn.disabled = true;
+      try {
+        const res = await fetch("/api/index/folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          folderErrEl.textContent = data.error || res.statusText || "Failed";
+          return;
+        }
+        renderFolderList(data.folders || []);
+        const n = data.txt_files_stored;
+        folderOkEl.textContent =
+          typeof n === "number"
+            ? `Added — ${n} .txt file path(s) recorded (indexing not run yet).`
+            : "Folder added.";
+        folderPathEl.value = "";
+      } catch (e) {
+        folderErrEl.textContent = String(e);
+      } finally {
+        addFolderBtn.disabled = false;
+      }
     }
 
     async function sendMessage() {
@@ -189,6 +376,16 @@
         sendMessage();
       }
     });
+
+    addFolderBtn.addEventListener("click", addFolder);
+    folderPathEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addFolder();
+      }
+    });
+
+    loadFolders();
   </script>
 </body>
 </html>

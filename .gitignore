@@ -1,0 +1,5 @@
+data/
+__pycache__/
+*.py[cod]
+.Python
+*.sqlite3

@@ -33,6 +33,8 @@ Then open the URL printed in the terminal (usually `http://127.0.0.1:8080/`). A 
 
 - **History** appears above the text box; each reply updates the list.
 - **Send** with the button or **Enter** (Shift+Enter for a newline).
+- **Indexed folders** (top right): paste an **absolute path** to a directory on this computer and click **Add**. The server records that folder and all **`.txt`** files under it (recursively) in a **SQLite** database (`data/files_index.db`). Duplicate folders are rejected. Browsers cannot read arbitrary disk paths, so the path field is manual; the server must run on the same machine as those files.
+
 
 Options:
 
@@ -60,13 +62,14 @@ Ensure the model name matches what `ollama list` shows and that the Ollama daemo
 ### High-level flow
 
 1. **`main.py`** parses arguments, constructs **`OllamaLLM`**, then either:
-   - **`run_web_server`** (`web_server.py`): starts **Flask**, serves **`templates/index.html`**, and handles **`POST /api/chat`** JSON; or
-   - **`run_chat_loop`** (`chatbot.py`): terminal REPL.
-2. **`chatbot.py`** loads **`prompts/system_prompt.txt`** and **`prompts/conversation_template.txt`**, maintains an in-memory list of prior **(user, assistant)** turns, and on each user message:
+   - **`run_web_server`** (`web_server.py`): starts **Flask**, serves **`templates/index.html`**, **`POST /api/chat`**, and **`/api/index/folders`** (list / add indexed directories); or
+   - **`run_chat_loop`** (`chatbot.py`): terminal REPL (no indexing UI).
+2. **`indexing/FileIndexStore`** (`indexing/file_index_store.py`) persists chosen folder paths and discovered **`.txt`** paths in SQLite. **Content indexing is not implemented yet** — only paths are stored for future use.
+3. **`chatbot.py`** loads **`prompts/system_prompt.txt`** and **`prompts/conversation_template.txt`**, maintains an in-memory list of prior **(user, assistant)** turns, and on each user message:
    - Builds the **user** payload by filling the template with `{chat_history}` and `{user_message}`.
    - Calls **`llm.complete(system=…, user=…)`** with the system prompt and that built user text.
-3. **`llm/llm.py`** defines the **`LLMClient`** protocol: any object with `complete(*, system, user) -> str` can be plugged in.
-4. **`llm/ollama/ollama_llm.py`** implements that protocol using the **`ollama`** Python library (`ollama.chat` with `system` + `user` messages).
+4. **`llm/llm.py`** defines the **`LLMClient`** protocol: any object with `complete(*, system, user) -> str` can be plugged in.
+5. **`llm/ollama/ollama_llm.py`** implements that protocol using the **`ollama`** Python library (`ollama.chat` with `system` + `user` messages).
 
 So **`chatbot.py` never imports Ollama**; only the Ollama submodule does.
 
@@ -75,8 +78,11 @@ So **`chatbot.py` never imports Ollama**; only the Ollama submodule does.
 ```
 personalfilesassistant/
 ├── main.py                 # Entry: web UI (default) or --cli
-├── web_server.py           # Flask app + /api/chat
+├── web_server.py           # Flask app + /api/chat + /api/index/folders
+├── indexing/               # Folder / file registry (extend here for real indexing)
+│   └── file_index_store.py
 ├── chatbot.py              # Prompts, history, template, REPL (backend-agnostic)
+├── data/                   # Created at runtime; SQLite DB (gitignored)
 ├── requirements.txt
 ├── README.md
 ├── templates/
