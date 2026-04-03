@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --text: #e7e9ea;
+      --muted: #8b98a5;
+      --accent: #1d9bf0;
+      --user: #38444d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; color: var(--muted); margin: 0 0 0.75rem; }
+    .panel {
+      width: 100%;
+      max-width: 42rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 1;
+      min-height: 0;
+    }
+    #history {
+      flex: 1;
+      min-height: 12rem;
+      max-height: min(60vh, 28rem);
+      overflow-y: auto;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      border: 1px solid #38444d;
+    }
+    #history:empty::before {
+      content: "No messages yet. Type below and send.";
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .turn { margin-bottom: 1rem; }
+    .turn:last-child { margin-bottom: 0; }
+    .turn .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.25rem; }
+    .turn .user-msg {
+      background: var(--user);
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .turn .assistant-msg {
+      padding: 0.5rem 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.45;
+    }
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    #message {
+      width: 100%;
+      min-height: 4.5rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #38444d;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      resize: vertical;
+    }
+    #message:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #err {
+      color: #f4212e;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Conversation</h1>
+    <div id="history" aria-live="polite"></div>
+    <div class="composer">
+      <div id="err"></div>
+      <textarea id="message" placeholder="Type your message…" rows="3"></textarea>
+      <div class="row">
+        <button type="button" id="send">Send</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const historyEl = document.getElementById("history");
+    const messageEl = document.getElementById("message");
+    const sendBtn = document.getElementById("send");
+    const errEl = document.getElementById("err");
+
+    function renderTurns(turns) {
+      historyEl.textContent = "";
+      for (const t of turns) {
+        const turn = document.createElement("div");
+        turn.className = "turn";
+
+        const uLabel = document.createElement("div");
+        uLabel.className = "label";
+        uLabel.textContent = "You";
+        const uDiv = document.createElement("div");
+        uDiv.className = "user-msg";
+        uDiv.textContent = t.user;
+
+        const aLabel = document.createElement("div");
+        aLabel.className = "label";
+        aLabel.textContent = "Assistant";
+        const aDiv = document.createElement("div");
+        aDiv.className = "assistant-msg";
+        aDiv.textContent = t.assistant;
+
+        turn.appendChild(uLabel);
+        turn.appendChild(uDiv);
+        turn.appendChild(aLabel);
+        turn.appendChild(aDiv);
+        historyEl.appendChild(turn);
+      }
+      historyEl.scrollTop = historyEl.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const message = messageEl.value.trim();
+      if (!message) return;
+      errEl.textContent = "";
+      sendBtn.disabled = true;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errEl.textContent = data.error || res.statusText || "Request failed";
+          return;
+        }
+        renderTurns(data.turns || []);
+        messageEl.value = "";
+        messageEl.focus();
+      } catch (e) {
+        errEl.textContent = String(e);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    messageEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

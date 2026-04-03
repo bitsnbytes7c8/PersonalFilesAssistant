@@ -1,8 +1,8 @@
-# Personal Files Assistant — CLI chatbot
+# Personal Files Assistant — local chatbot
 
 ## Description
 
-This project is a **terminal conversation bot** written in Python. It runs a simple read–eval loop: you type messages, and the assistant replies. The bot is **not tied to a single LLM vendor**: conversation logic and prompts live in one place, while the actual model calls go through a small **`LLMClient` interface**. The included backend talks to **[Ollama](https://ollama.com/)** on your machine, so you can run local open models without sending data to a cloud API by default.
+This project is a **local conversation bot** written in Python. By default it serves a **small web UI** on your machine; you can also use a **terminal chat loop**. The bot is **not tied to a single LLM vendor**: conversation logic and prompts live in one place, while the actual model calls go through a small **`LLMClient` interface**. The included backend talks to **[Ollama](https://ollama.com/)** on your machine, so you can run local open models without sending data to a cloud API by default.
 
 Session **conversation history** is folded into each request using a **text template** (separate from code), alongside a **system prompt** (also in its own file). That keeps behavior easy to tweak without editing Python.
 
@@ -21,17 +21,34 @@ python3 -m pip install -r requirements.txt
 
 ## Usage
 
-Start the chat from the project directory:
+### Web UI (default)
+
+Starts an HTTP server on **localhost** using port **8080** by default — **not** Ollama’s API port (typically **11434**).
 
 ```bash
 python3 main.py
 ```
 
-Default model is `llama3.2`. Use another Ollama model:
+Then open the URL printed in the terminal (usually `http://127.0.0.1:8080/`). A browser tab may open automatically; use **`--no-browser`** to disable that.
+
+- **History** appears above the text box; each reply updates the list.
+- **Send** with the button or **Enter** (Shift+Enter for a newline).
+
+Options:
 
 ```bash
-python3 main.py --model mistral
-python3 main.py -m llama3.1
+python3 main.py -p 9000                    # custom port
+python3 main.py --host 127.0.0.1 --port 8080
+python3 main.py --model mistral            # Ollama model name
+python3 main.py --no-browser
+```
+
+Stop the server with **Ctrl+C**.
+
+### Terminal chat (`--cli`)
+
+```bash
+python3 main.py --cli
 ```
 
 - **Exit:** send an empty line, or press Ctrl+C (or Ctrl+D for EOF).
@@ -42,7 +59,9 @@ Ensure the model name matches what `ollama list` shows and that the Ollama daemo
 
 ### High-level flow
 
-1. **`main.py`** parses `--model` / `-m`, constructs an **`OllamaLLM`** instance, and passes it to **`run_chat_loop`** in `chatbot.py`.
+1. **`main.py`** parses arguments, constructs **`OllamaLLM`**, then either:
+   - **`run_web_server`** (`web_server.py`): starts **Flask**, serves **`templates/index.html`**, and handles **`POST /api/chat`** JSON; or
+   - **`run_chat_loop`** (`chatbot.py`): terminal REPL.
 2. **`chatbot.py`** loads **`prompts/system_prompt.txt`** and **`prompts/conversation_template.txt`**, maintains an in-memory list of prior **(user, assistant)** turns, and on each user message:
    - Builds the **user** payload by filling the template with `{chat_history}` and `{user_message}`.
    - Calls **`llm.complete(system=…, user=…)`** with the system prompt and that built user text.
@@ -55,19 +74,22 @@ So **`chatbot.py` never imports Ollama**; only the Ollama submodule does.
 
 ```
 personalfilesassistant/
-├── main.py                 # CLI + wires OllamaLLM → chat loop
+├── main.py                 # Entry: web UI (default) or --cli
+├── web_server.py           # Flask app + /api/chat
 ├── chatbot.py              # Prompts, history, template, REPL (backend-agnostic)
 ├── requirements.txt
 ├── README.md
+├── templates/
+│   └── index.html          # Web UI
 ├── prompts/
-│   ├── system_prompt.txt       # System message (persona / rules)
-│   └── conversation_template.txt  # {chat_history}, {user_message}
+│   ├── system_prompt.txt
+│   └── conversation_template.txt
 └── llm/
-    ├── __init__.py         # Re-exports LLMClient
+    ├── __init__.py
     ├── llm.py              # LLMClient protocol
     └── ollama/
-        ├── __init__.py     # Re-exports OllamaLLM
-        └── ollama_llm.py   # Ollama implementation
+        ├── __init__.py
+        └── ollama_llm.py
 ```
 
 ### Customization
@@ -76,7 +98,7 @@ personalfilesassistant/
 |------|--------|
 | Assistant personality / rules | `prompts/system_prompt.txt` |
 | How history + latest user text are presented | `prompts/conversation_template.txt` |
-| Default model name | `main.py` (`default="llama3.2"`) |
+| Default model / web port | `main.py` |
 | Another LLM (OpenAI, etc.) | New module under `llm/` implementing `LLMClient`, then swap the import in `main.py` |
 
 ### Adding another backend
@@ -87,4 +109,4 @@ Implement a class with:
 def complete(self, *, system: str, user: str) -> str: ...
 ```
 
-Pass an instance of that class to `run_chat_loop(...)` from `main.py` (or a future config-driven loader).
+Pass an instance of that class to `run_chat_loop(...)` or `run_web_server(...)` from `main.py`.
