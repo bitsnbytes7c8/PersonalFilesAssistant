@@ -1,0 +1,6 @@
+Below is the conversation so far in this session (oldest first):
+
+{chat_history}
+
+The user's latest message:
+{user_message}
