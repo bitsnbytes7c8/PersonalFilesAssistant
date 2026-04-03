@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Timer
 
 from chatbot import run_chat_loop
-from indexing import FileIndexStore
+from indexing import FileIndexStore, IndexingPipeline
 from llm.ollama import OllamaLLM
 from web_server import run_web_server
 
@@ -62,7 +62,18 @@ def main() -> None:
     print(f"Web UI: {url}")
     print("Press Ctrl+C to stop.\n")
     index_store = FileIndexStore(_DEFAULT_DB)
-    run_web_server(llm, host=args.host, port=args.port, index_store=index_store)
+    pipeline = IndexingPipeline(index_store)
+    pipeline.start()
+    try:
+        run_web_server(
+            llm,
+            host=args.host,
+            port=args.port,
+            index_store=index_store,
+            pipeline=pipeline,
+        )
+    finally:
+        pipeline.stop()
 
 
 if __name__ == "__main__":

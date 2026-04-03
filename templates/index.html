@@ -66,17 +66,42 @@
       list-style: none;
       margin: 0 0 0.6rem;
       padding: 0;
+      padding-left: 0;
       max-height: 10rem;
       overflow-y: auto;
     }
     #folder-list li {
-      padding: 0.25rem 0;
+      padding: 0.45rem 0;
       border-bottom: 1px solid #2f3b47;
       word-break: break-all;
       color: var(--text);
       line-height: 1.35;
+      list-style: none;
     }
     #folder-list li:last-child { border-bottom: none; }
+    .folder-path {
+      font-size: 0.78rem;
+      margin-bottom: 0.2rem;
+    }
+    .folder-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.5rem;
+      align-items: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .folder-state {
+      display: inline-block;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.65rem;
+      letter-spacing: 0.03em;
+    }
+    .folder-state.NOT_STARTED { background: #3d3a1e; color: #f0e68c; }
+    .folder-state.STARTED { background: #1e3a4a; color: #7ec8e3; }
+    .folder-state.COMPLETED { background: #1e3d2e; color: #8fd99f; }
     #folder-list:empty::after {
       content: "None yet";
       color: var(--muted);
@@ -291,8 +316,27 @@
       folderListEl.textContent = "";
       for (const f of folders) {
         const li = document.createElement("li");
-        li.textContent = f.path;
-        li.title = f.path;
+        const pathEl = document.createElement("div");
+        pathEl.className = "folder-path";
+        pathEl.textContent = f.path;
+        pathEl.title = f.path;
+
+        const meta = document.createElement("div");
+        meta.className = "folder-meta";
+        const st = f.state || "—";
+        const badge = document.createElement("span");
+        badge.className = "folder-state " + st;
+        badge.textContent = st;
+
+        const counts = document.createElement("span");
+        const total = f.file_total != null ? f.file_total : 0;
+        const done = f.files_completed != null ? f.files_completed : 0;
+        counts.textContent = total + " .txt file(s) — " + done + " indexed";
+
+        meta.appendChild(badge);
+        meta.appendChild(counts);
+        li.appendChild(pathEl);
+        li.appendChild(meta);
         folderListEl.appendChild(li);
       }
     }
@@ -333,7 +377,7 @@
         const n = data.txt_files_stored;
         folderOkEl.textContent =
           typeof n === "number"
-            ? `Added — ${n} .txt file path(s) recorded (indexing not run yet).`
+            ? `Added — ${n} .txt file(s) queued for indexing in the background.`
             : "Folder added.";
         folderPathEl.value = "";
       } catch (e) {
@@ -386,6 +430,7 @@
     });
 
     loadFolders();
+    setInterval(loadFolders, 2500);
   </script>
 </body>
 </html>

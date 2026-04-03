@@ -7,11 +7,15 @@ import threading
 from flask import Flask, jsonify, render_template, request
 
 from chatbot import chat_once, load_conversation_template, load_system_prompt
-from indexing import FileIndexStore
+from indexing import FileIndexStore, IndexingPipeline
 from llm import LLMClient
 
 
-def create_app(llm: LLMClient, index_store: FileIndexStore) -> Flask:
+def create_app(
+    llm: LLMClient,
+    index_store: FileIndexStore,
+    pipeline: IndexingPipeline,
+) -> Flask:
     app = Flask(__name__)
     system_prompt = load_system_prompt()
     conversation_template = load_conversation_template()
@@ -60,9 +64,12 @@ def create_app(llm: LLMClient, index_store: FileIndexStore) -> Flask:
         result = index_store.add_folder(path)
         if not result.ok:
             return jsonify({"error": result.error or "Failed to add folder"}), 400
+        if result.folder_id is not None:
+            pipeline.notify_folder_added(result.folder_id)
         return jsonify(
             {
                 "folder_path": result.folder_path,
+                "folder_id": result.folder_id,
                 "txt_files_stored": result.txt_files_stored,
                 "folders": index_store.list_folders(),
             }
@@ -77,8 +84,9 @@ def run_web_server(
     host: str,
     port: int,
     index_store: FileIndexStore,
+    pipeline: IndexingPipeline,
 ) -> None:
-    app = create_app(llm, index_store)
+    app = create_app(llm, index_store, pipeline)
     # threaded=True so the browser can open while a long LLM call runs
     app.run(host=host, port=port, threaded=True, use_reloader=False)
 
